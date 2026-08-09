@@ -29,6 +29,12 @@ describe('database-backed Wedding Friends Portal invariants', () => {
     expect(sql).toContain('alter table payments enable row level security');
     expect(sql).toContain('create function approve_payment_with_audit');
     expect(sql).toContain('create function submit_payment_with_audit');
+    expect(sql).toContain('revoke execute on all functions in schema public from public, anon, authenticated');
+    expect(sql).toContain('grant execute on function approve_payment_with_audit(uuid,uuid) to service_role');
+    expect(sql).toContain('perform assert_super_admin(p_actor_id);');
+    expect(sql).toContain('perform assert_admin(p_actor_id);');
+    expect(sql).toContain('if p_actor_id <> p_user_id then raise exception');
+    expect(sql).toContain('security definer set search_path=public');
   });
 
   it('production app no longer imports MemoryStore or persists business data in module arrays', () => {
@@ -41,7 +47,7 @@ describe('database-backed Wedding Friends Portal invariants', () => {
     }
   });
 
-  it('Supabase integration test is explicitly gated on real credentials', () => {
+  it('direct-RPC abuse coverage is gated on real Supabase credentials', () => {
     const hasSupabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.RUN_SUPABASE_INTEGRATION === '1');
     expect(hasSupabase).toBe(false);
   });

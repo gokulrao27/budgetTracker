@@ -69,3 +69,8 @@ Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e`, and `np
 
 ## Testing note
 Automated tests verify pure financial invariants and inspect the migration/source for the database-backed persistence, idempotency, RLS, and atomic transition requirements. Full Supabase integration/E2E tests require real test Supabase credentials and `RUN_SUPABASE_INTEGRATION=1`; they were not run without those credentials.
+
+## RPC security hardening
+Sensitive `SECURITY DEFINER` RPC functions revoke execution from `PUBLIC`, `anon`, and `authenticated`, then grant execution only to `service_role`. The functions also validate the actor role or ownership inside PostgreSQL before mutating data, and each function sets a fixed `search_path=public`. The generic `audit()` helper is not granted to browser roles and is intended for internal function use only.
+
+Payment submission removes the just-uploaded proof object if the database RPC fails after upload, then re-checks the idempotency key so duplicate retries return the existing row rather than accumulating orphaned objects.

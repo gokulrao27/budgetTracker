@@ -94,7 +94,7 @@ export class WeddingDb {
 
   async changePassword(user: User, newPassword: string) {
     if (newPassword.length < 8 || newPassword.length > 128) throw new AppError('Password must be 8 to 128 characters.', 400);
-    const { error } = await this.supabase.rpc('change_password_with_audit', { p_user_id: user.id, p_password_hash: await hashPassword(newPassword) });
+    const { error } = await this.supabase.rpc('change_password_with_audit', { p_actor_id: user.id, p_user_id: user.id, p_password_hash: await hashPassword(newPassword) });
     if (error) throw new AppError('Unable to change password.', 500);
   }
 
@@ -119,8 +119,9 @@ export class WeddingDb {
     const path = `${actor.id}/${crypto.randomUUID()}-${storageName(input.screenshot.name)}`;
     const upload = await this.supabase.storage.from('payment-proofs').upload(path, await fileBuffer(input.screenshot), { contentType: input.screenshot.type, upsert: false });
     if (upload.error) throw new AppError('Unable to upload payment screenshot.', 500);
-    const { data, error } = await this.supabase.rpc('submit_payment_with_audit', { p_user_id: actor.id, p_amount: amount, p_screenshot_path: path, p_notes: cleanText(input.notes, 1000) || null, p_method: cleanText(input.method, 80) || null, p_reference_id: cleanText(input.referenceId, 120) || null, p_idempotency_key: input.idempotencyKey });
+    const { data, error } = await this.supabase.rpc('submit_payment_with_audit', { p_actor_id: actor.id, p_user_id: actor.id, p_amount: amount, p_screenshot_path: path, p_notes: cleanText(input.notes, 1000) || null, p_method: cleanText(input.method, 80) || null, p_reference_id: cleanText(input.referenceId, 120) || null, p_idempotency_key: input.idempotencyKey });
     if (error) {
+      await this.supabase.storage.from('payment-proofs').remove([path]);
       const duplicate = await this.paymentByIdempotency(actor.id, input.idempotencyKey);
       if (duplicate) return duplicate;
       throw new AppError('Unable to submit payment.', 500);

@@ -1,2 +1,15 @@
-import { NextRequest } from 'next/server';import { actor,json,safe } from '@/lib/api';import { setSession } from '@/lib/session';import { store,AppError } from '@/lib/store';
-export async function POST(req:NextRequest){try{const u=await actor();if(!u)throw new AppError('Login required',401);const {password}=await req.json();await store.changePassword(u,password);await setSession({userId:u.id,role:u.role,mustChangePassword:false});return json({ok:true})}catch(e){return safe(e)}}
+import { NextRequest } from 'next/server';
+import { actor, json, safe, AppError } from '@/lib/api';
+import { setSession } from '@/lib/session';
+import { getDb } from '@/lib/db';
+
+export async function POST(req: NextRequest) {
+  try {
+    const user = await actor();
+    if (!user) throw new AppError('Login required.', 401);
+    const { password } = await req.json();
+    await getDb().changePassword(user, password);
+    await setSession({ userId: user.id, role: user.role, mustChangePassword: false });
+    return json({ ok: true });
+  } catch (error) { return safe(error); }
+}

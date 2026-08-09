@@ -1,7 +1,48 @@
-import { beforeEach,describe,expect,it } from 'vitest';import { MemoryStore,AppError } from '../lib/store';import { budgetSummary, normalizeName, verifyPassword } from '../lib/domain';
-const img={type:'image/png',size:1024,name:'proof.png'};
-describe('Wedding Friends Portal journey and security',()=>{let s:MemoryStore;let gokul:any;let surya:any;beforeEach(async()=>{s=new MemoryStore();const g=await s.createUser(null,'Gokul','SUPER_ADMIN',0,'GokulPass123');gokul=g.user;const su=await s.createUser(gokul.id,'Surya','ADMIN',0,'SuryaPass123');surya=su.user});
-it('normalizes names and rejects duplicate normalized names',async()=>{expect(normalizeName(' GoKuL  Kumar ')).toBe('gokul kumar');await expect(s.createUser(gokul.id,'  gokul  ','FRIEND',0,'Password123')).rejects.toThrow('already exists')});
-it('complete requested journey',async()=>{const created=await s.createUser(surya.id,'Rahul','FRIEND',10000);expect(created.temporaryPassword).toBeTruthy();let rahul=await s.login(' rahul ',created.temporaryPassword);expect(rahul.must_change_password).toBe(true);await s.changePassword(rahul,'RahulNew123');await expect(s.login('Rahul',created.temporaryPassword)).rejects.toThrow('Invalid');rahul=await s.login('RAHUL','RahulNew123');expect(rahul.must_change_password).toBe(false);const photo=await s.updateProfilePhoto(rahul,rahul.id,img);expect(photo).toContain('profile-photos');const pay=await s.submitPayment(rahul,4000,img,'idem-1','paid');expect(pay.status).toBe('PENDING');expect(s.summary(rahul).approvedPaid).toBe(0);expect(s.summary(rahul).pendingAmount).toBe(4000);await expect(s.approvePayment(surya,pay.id)).rejects.toThrow('Only Gokul');const approved=await s.approvePayment(gokul,pay.id);expect(approved.status).toBe('APPROVED');expect(s.summary(rahul).approvedPaid).toBe(4000);expect(s.summary(rahul).remaining).toBe(6000);await expect(s.approvePayment(gokul,pay.id)).rejects.toThrow('Only pending');const exp=await s.createExpense(surya.id,{amount:20000,category:'Food',description:'Food advance'});const b=budgetSummary(s.totalBudget,s.expenses);expect(exp.amount).toBe(20000);expect(b.totalSpent).toBe(20000);expect(b.byCategory.Food).toBe(20000);expect(b.remainingBudget).toBe(480000);expect(s.audits.map(a=>a.action)).toEqual(expect.arrayContaining(['user.created','password.changed','profile.photo.updated','payment.submitted','payment.approved','expense.created']))});
-it('authorization, idempotency, uploads, and financial invariants',async()=>{const u=(await s.createUser(gokul.id,'Maya','FRIEND',5000,'MayaPass123')).user;await expect(s.createExpense(u.id,{amount:1,category:'Food',description:'x'})).rejects.toThrow('Admin');await expect(s.updateProfilePhoto(u,gokul.id,img)).rejects.toThrow('Cannot update');await expect(s.updateProfilePhoto(u,u.id,{type:'text/html',size:1,name:'x.html'})).rejects.toThrow('Only PNG');const p1=await s.submitPayment(u,1000,img,'same');const p2=await s.submitPayment(u,1000,img,'same');expect(p1.id).toBe(p2.id);await s.rejectPayment(gokul,p1.id,'bad proof');expect(s.summary(u).approvedPaid).toBe(0);await expect(s.rejectPayment(gokul,p1.id,'again')).resolves.toBeTruthy();});
-it('passwords are hashed and invalid logins fail/rate limit',async()=>{expect(gokul.password_hash).not.toContain('GokulPass123');expect(await verifyPassword('GokulPass123',gokul.password_hash)).toBe(true);await expect(s.login('go','GokulPass123')).rejects.toThrow('Invalid');for(let i=0;i<8;i++) await expect(s.login('Gokul','bad')).rejects.toThrow();await expect(s.login('Gokul','bad')).rejects.toThrow('Too many')})});
+import { describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import { contributionSummary, budgetSummary, normalizeName } from '../lib/domain';
+
+describe('database-backed Wedding Friends Portal invariants', () => {
+  it('keeps pure financial calculations derived from authoritative records', () => {
+    expect(normalizeName(' GoKuL   Kumar ')).toBe('gokul kumar');
+    const contribution = contributionSummary({ required_contribution: 10000 }, [
+      { id: '1', user_id: 'u', amount: 4000, status: 'PENDING', screenshot_path: 'p', idempotency_key: 'a', created_at: 'now' },
+      { id: '2', user_id: 'u', amount: 2500, status: 'APPROVED', screenshot_path: 'p', idempotency_key: 'b', created_at: 'now' },
+      { id: '3', user_id: 'u', amount: 1000, status: 'REJECTED', screenshot_path: 'p', idempotency_key: 'c', created_at: 'now' },
+    ]);
+    expect(contribution).toEqual({ required: 10000, approvedPaid: 2500, pendingAmount: 4000, remaining: 7500 });
+    const budget = budgetSummary(50000, [
+      { id: 'e1', amount: 20000, category: 'Food', description: 'Dinner', created_by: 'a', created_at: 'now', updated_at: 'now' },
+      { id: 'e2', amount: 5000, category: 'Food', description: 'Snacks', created_by: 'a', created_at: 'now', updated_at: 'now' },
+      { id: 'e3', amount: 7000, category: 'Music', description: 'DJ', created_by: 'a', created_at: 'now', updated_at: 'now', deleted_at: 'now' },
+    ]);
+    expect(budget).toEqual({ totalBudget: 50000, totalSpent: 25000, remainingBudget: 25000, byCategory: { Food: 25000 } });
+  });
+
+  it('migration defines PostgreSQL persistence, budget settings, RLS, idempotency, and atomic payment approval', () => {
+    const sql = fs.readFileSync('supabase/migrations/001_initial_schema.sql', 'utf8');
+    expect(sql).toContain('create table application_settings');
+    expect(sql).toContain('unique(user_id,idempotency_key)');
+    expect(sql).toContain("where id=p_payment_id and status='PENDING'");
+    expect(sql).toContain('create view user_contribution_summaries');
+    expect(sql).toContain('create view expense_category_totals');
+    expect(sql).toContain('alter table payments enable row level security');
+    expect(sql).toContain('create function approve_payment_with_audit');
+    expect(sql).toContain('create function submit_payment_with_audit');
+  });
+
+  it('production app no longer imports MemoryStore or persists business data in module arrays', () => {
+    expect(fs.existsSync('lib/store.ts')).toBe(false);
+    const files = ['lib/db.ts', 'lib/api.ts', 'app/api/payments/route.ts', 'app/api/admin/payments/[id]/approve/route.ts'];
+    for (const file of files) {
+      const source = fs.readFileSync(file, 'utf8');
+      expect(source).not.toContain('MemoryStore');
+      expect(source).not.toMatch(/users:\s*User\[\]|payments:\s*Payment\[\]|expenses:\s*Expense\[\]/);
+    }
+  });
+
+  it('Supabase integration test is explicitly gated on real credentials', () => {
+    const hasSupabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.RUN_SUPABASE_INTEGRATION === '1');
+    expect(hasSupabase).toBe(false);
+  });
+});

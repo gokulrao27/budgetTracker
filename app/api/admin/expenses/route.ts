@@ -1,1 +1,12 @@
-import { NextRequest } from 'next/server';import { actor,json,safe } from '@/lib/api';import { store,AppError } from '@/lib/store';export async function POST(req:NextRequest){try{const u=await actor();if(!u)throw new AppError('Login required',401);const b=await req.json();return json(await store.createExpense(u.id,{amount:Number(b.amount),category:b.category,description:b.description,notes:b.notes}))}catch(e){return safe(e)}}
+import { NextRequest } from 'next/server';
+import { actor, json, safe, AppError } from '@/lib/api';
+import { getDb } from '@/lib/db';
+
+export async function POST(req: NextRequest) {
+  try {
+    const user = await actor();
+    if (!user) throw new AppError('Login required.', 401);
+    const body = await req.json();
+    return json(await getDb().createExpense(user, { amount: Number(body.amount), category: body.category, description: body.description, notes: body.notes }));
+  } catch (error) { return safe(error); }
+}

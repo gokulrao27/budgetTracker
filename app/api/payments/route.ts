@@ -1,0 +1,2 @@
+import { NextRequest } from 'next/server';import { actor,json,safe } from '@/lib/api';import { store,AppError } from '@/lib/store';
+export async function POST(req:NextRequest){try{const u=await actor();if(!u)throw new AppError('Login required',401);const form=await req.formData();const file=form.get('screenshot') as File;const p=await store.submitPayment(u,Number(form.get('amount')),file,String(form.get('idempotencyKey')),String(form.get('notes')||''));return json(p)}catch(e){return safe(e)}}

@@ -1,0 +1,2 @@
+import { NextRequest } from 'next/server';import { safe,json } from '@/lib/api';import { setSession } from '@/lib/session';import { store } from '@/lib/store';
+export async function POST(req:NextRequest){try{await store.bootstrap();const {name,password}=await req.json();const user=await store.login(name,password,req.headers.get('x-forwarded-for')||'local');await setSession({userId:user.id,role:user.role,mustChangePassword:user.must_change_password});return json({mustChangePassword:user.must_change_password})}catch(e){return safe(e)}}

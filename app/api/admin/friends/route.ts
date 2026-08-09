@@ -1,0 +1,2 @@
+import { NextRequest } from 'next/server';import { actor,json,safe } from '@/lib/api';import { store,AppError } from '@/lib/store';
+export async function POST(req:NextRequest){try{const u=await actor();if(!u)throw new AppError('Login required',401);store.requireAdmin(u);const b=await req.json();const r=await store.createUser(u.id,b.name,'FRIEND',Number(b.requiredContribution||0));return json({user:{id:r.user.id,name:r.user.name},temporaryPassword:r.temporaryPassword})}catch(e){return safe(e)}}

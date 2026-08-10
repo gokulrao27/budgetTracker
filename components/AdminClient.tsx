@@ -4,7 +4,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CategoryPie } from './Charts';
 import type { BudgetData, PortalAlbum, PortalExpense, PortalPayment, PortalUser } from './PortalClient';
 
 type AuditLog = {
@@ -30,17 +29,17 @@ type AdminProps = {
   albums: PortalAlbum[];
 };
 
-type AdminSection = 'approvals' | 'summary' | 'actions' | 'friends' | 'expenses' | 'memories';
+type AdminSection = 'overview' | 'payments' | 'friends' | 'expenses' | 'memories' | 'audit';
 type JsonResponse = { error?: string; temporaryPassword?: string };
 
 const rupee = (value: number | string) => `₹${Number(value ?? 0).toLocaleString('en-IN')}`;
 const adminSections: { id: AdminSection; label: string }[] = [
-  { id: 'approvals', label: 'Approvals' },
-  { id: 'summary', label: 'Summary' },
-  { id: 'actions', label: 'Actions' },
+  { id: 'overview', label: 'Overview' },
+  { id: 'payments', label: 'Payments' },
   { id: 'friends', label: 'Friends' },
   { id: 'expenses', label: 'Expenses' },
   { id: 'memories', label: 'Memories' },
+  { id: 'audit', label: 'Audit' },
 ];
 
 function profilePhoto(friend: PortalUser) {
@@ -49,8 +48,8 @@ function profilePhoto(friend: PortalUser) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="hero-card p-4">
-      <p className="text-sm text-white/55">{label}</p>
+    <div className="surface rounded-[1.5rem] p-4">
+      <p className="text-sm text-[var(--muted)]">{label}</p>
       <b className="text-2xl">{value}</b>
     </div>
   );
@@ -58,7 +57,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function Panel({ title, children, eyebrow }: { title: string; children: React.ReactNode; eyebrow?: string }) {
   return (
-    <section className="hero-card p-5">
+    <section className="surface rounded-[1.75rem] p-5">
       {eyebrow && <p className="eyebrow">{eyebrow}</p>}
       <h2 className="mb-4 text-2xl font-black">{title}</h2>
       {children}
@@ -67,16 +66,16 @@ function Panel({ title, children, eyebrow }: { title: string; children: React.Re
 }
 
 function EmptyState({ text }: { text: string }) {
-  return <p className="rounded-3xl border border-dashed border-white/15 bg-white/[.04] p-8 text-white/55">{text}</p>;
+  return <p className="soft rounded-[1.5rem] border border-dashed border-[var(--line)] p-8 text-[var(--muted)]">{text}</p>;
 }
 
 function AdminNav({ activeSection, onSectionChange }: { activeSection: AdminSection; onSectionChange: (section: AdminSection) => void }) {
   return (
     <>
-      <nav className="flex min-h-16 flex-wrap items-center justify-between gap-3">
+      <nav className="container flex min-h-16 flex-wrap items-center justify-between gap-3 py-4">
         <div>
-          <p className="eyebrow">Admin command center</p>
-          <h1 className="text-4xl font-black sm:text-6xl">Wedding operations</h1>
+          <p className="eyebrow">Wedding Admin</p>
+          <h1 className="font-display text-4xl font-bold sm:text-5xl">Event management</h1>
         </div>
         <div className="flex gap-2">
           <Link className="btn2 tap" href="/">Portal</Link>
@@ -85,10 +84,10 @@ function AdminNav({ activeSection, onSectionChange }: { activeSection: AdminSect
           </form>
         </div>
       </nav>
-      <div className="sticky top-0 z-30 -mx-4 mt-4 overflow-x-auto border-y border-white/10 bg-[#090408]/85 px-4 py-3 backdrop-blur-xl md:mx-0 md:rounded-full md:border md:bg-white/[.06]" aria-label="Admin sections">
+      <div className="sticky top-0 z-30 mt-2 overflow-x-auto border-y border-[var(--line)] bg-[rgba(251,246,238,.92)] px-4 py-3 backdrop-blur-xl md:container md:rounded-full md:border" aria-label="Admin sections">
         <div className="flex min-w-max gap-2">
           {adminSections.map((section) => (
-            <button key={section.id} className={`min-h-11 rounded-full px-4 text-sm font-black ${activeSection === section.id ? 'bg-rose-600 text-white' : 'bg-white/10 text-white/65'}`} onClick={() => onSectionChange(section.id)}>
+            <button key={section.id} className={`min-h-11 rounded-full px-4 text-sm font-black ${activeSection === section.id ? 'bg-[var(--wine)] text-white' : 'bg-[#fffaf3] text-[var(--muted)]'}`} onClick={() => onSectionChange(section.id)}>
               {section.label}
             </button>
           ))}
@@ -121,11 +120,11 @@ function PaymentApprovalCard({ payment, canApprove, busy, onApprove, onReject }:
   const friendName = payment.app_users?.name ?? 'Friend';
 
   return (
-    <article className="rounded-3xl bg-white/[.06] p-4">
+    <article className="soft rounded-[1.5rem] p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-xl font-black">{friendName} · {rupee(payment.amount)}</h3>
-          <p className="text-sm text-white/55">
+          <p className="text-sm text-[var(--muted)]">
             Submitted {new Date(payment.created_at).toLocaleString()} · {payment.method || 'method not set'} {payment.reference_id ? `· ${payment.reference_id}` : ''}
           </p>
         </div>
@@ -135,17 +134,17 @@ function PaymentApprovalCard({ payment, canApprove, busy, onApprove, onReject }:
       </div>
       {canApprove ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <button disabled={busy} className="btn bg-emerald-500 hover:bg-emerald-400" onClick={() => onApprove(payment.id)}>Approve</button>
+          <button disabled={busy} className="btn !bg-[#315d36] hover:!bg-[#427848]" onClick={() => onApprove(payment.id)}>Approve</button>
           <button
             disabled={busy}
-            className="btn bg-rose-600"
+            className="btn"
             onClick={() => onReject(payment.id, window.prompt('Optional rejection reason') || 'Not approved')}
           >
             Reject
           </button>
         </div>
       ) : (
-        <p className="mt-3 rounded-2xl bg-amber-300/10 p-3 text-amber-100">Only Gokul can approve or reject payments.</p>
+        <p className="mt-3 rounded-2xl bg-[#fff2d8] p-3 text-[#805600]">Only Gokul can approve or reject payments.</p>
       )}
     </article>
   );
@@ -230,12 +229,12 @@ function FriendManagement({ friends, busy, onResetPassword }: { friends: PortalU
           return (
             <div className="list-card flex-col items-stretch sm:flex-row sm:items-center" key={friend.id}>
               <div className="flex items-center gap-3">
-                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-rose-900">
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-[#ead8c7]">
                   {src && <Image alt={friend.name} src={src} fill sizes="48px" className="object-cover" />}
                 </div>
                 <div>
                   <b>{friend.name}</b>
-                  <p className="text-sm text-white/55">
+                  <p className="text-sm text-[var(--muted)]">
                     {friend.role.replace('_', ' ')} · contribution {rupee(friend.required_contribution)} {friend.must_change_password ? '· must change password' : ''}
                   </p>
                 </div>
@@ -250,10 +249,19 @@ function FriendManagement({ friends, busy, onResetPassword }: { friends: PortalU
 }
 
 function ExpenseManagement({ budget, expenses }: { budget: BudgetData; expenses: PortalExpense[] }) {
+  const entries = Object.entries(budget.byCategory);
+  const max = Math.max(...entries.map(([, value]) => value), 1);
   return (
     <section className="grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
       <Panel title="Expense distribution" eyebrow="Spending">
-        <CategoryPie data={Object.entries(budget.byCategory).map(([name, value]) => ({ name, value: Number(value) }))} />
+        <div className="space-y-3">
+          {entries.length ? entries.map(([category, value]) => (
+            <div key={category}>
+              <div className="flex justify-between text-sm"><span>{category}</span><b>{rupee(value)}</b></div>
+              <div className="mt-1 h-2 rounded-full bg-[#eadfd2]"><span className="block h-full rounded-full bg-[var(--gold)]" style={{ width: `${Math.max(7, (value / max) * 100)}%` }} /></div>
+            </div>
+          )) : <EmptyState text="No expense categories yet." />}
+        </div>
       </Panel>
       <Panel title="Recent expenses" eyebrow="Ledger">
         <div className="space-y-3">
@@ -261,8 +269,8 @@ function ExpenseManagement({ budget, expenses }: { budget: BudgetData; expenses:
             <div className="list-card" key={expense.id}>
               <div>
                 <b>{expense.category}</b>
-                <p className="text-sm text-white/55">{expense.description}</p>
-                <p className="text-xs text-white/40">{new Date(expense.created_at).toLocaleString()}</p>
+                <p className="text-sm text-[var(--muted)]">{expense.description}</p>
+                <p className="text-xs text-[var(--muted)]">{new Date(expense.created_at).toLocaleString()}</p>
               </div>
               <b>{rupee(expense.amount)}</b>
             </div>
@@ -295,7 +303,7 @@ function AuditSection({ audits }: { audits: AuditLog[] }) {
         {audits.length ? audits.slice(0, 12).map((audit) => (
           <div className="list-card" key={audit.id}>
             <span>{audit.action} · {audit.entity_type}</span>
-            <span className="text-xs text-white/45">{new Date(audit.created_at).toLocaleString()}</span>
+            <span className="text-xs text-[var(--muted)]">{new Date(audit.created_at).toLocaleString()}</span>
           </div>
         )) : <EmptyState text="No audit entries yet." />}
       </div>
@@ -305,7 +313,7 @@ function AuditSection({ audits }: { audits: AuditLog[] }) {
 
 export default function AdminClient({ me, budget, friends, payments, expenses, audits, albums }: AdminProps) {
   const router = useRouter();
-  const [activeSection, setActiveSection] = useState<AdminSection>('approvals');
+  const [activeSection, setActiveSection] = useState<AdminSection>('overview');
   const [busyAction, setBusyAction] = useState('');
   const [temporaryPassword, setTemporaryPassword] = useState('');
   const [error, setError] = useState('');
@@ -344,22 +352,22 @@ export default function AdminClient({ me, budget, friends, payments, expenses, a
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,#3b0717,#050205_65%)] px-4 py-5 md:px-8">
+    <main className="page-shell min-h-screen overflow-x-hidden">
       <AdminNav activeSection={activeSection} onSectionChange={setActiveSection} />
 
-      {error && <p role="alert" className="my-4 rounded-2xl bg-rose-500/15 p-3 text-rose-100">{error}</p>}
+      {error && <p role="alert" className="container my-4 rounded-2xl bg-[#fde8e8] p-3 text-[#9b1c1c]">{error}</p>}
       {temporaryPassword && (
-        <div role="status" className="my-4 rounded-3xl bg-emerald-400/15 p-4">
+        <div role="status" className="container my-4 rounded-[1.5rem] bg-[#e8f2e7] p-4">
           <p className="font-bold">Temporary password — copy now, it is shown once.</p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-            <code className="flex-1 rounded-xl bg-black/35 p-3 text-lg">{temporaryPassword}</code>
+            <code className="flex-1 rounded-xl bg-white p-3 text-lg">{temporaryPassword}</code>
             <button className="btn2" onClick={() => navigator.clipboard?.writeText(temporaryPassword)}>Copy</button>
           </div>
         </div>
       )}
 
-      <div className="my-6 space-y-5">
-        {activeSection === 'approvals' && (
+      <div className="container my-6 space-y-5 pb-10">
+        {activeSection === 'payments' && (
           <PendingPayments
             payments={pendingPayments}
             canApprove={canApprove}
@@ -368,16 +376,12 @@ export default function AdminClient({ me, budget, friends, payments, expenses, a
             onReject={(paymentId, reason) => postJson(`/api/admin/payments/${paymentId}/reject`, { reason })}
           />
         )}
-        {activeSection === 'summary' && <AdminStats budget={budget} approved={approvedContributions} pendingCount={pendingPayments.length} friendCount={friends.length} />}
-        {activeSection === 'actions' && <QuickActions busy={Boolean(busyAction)} onCreateFriend={handleCreateFriend} onCreateExpense={(payload) => postJson('/api/admin/expenses', payload)} />}
-        {activeSection === 'friends' && <FriendManagement friends={friends} busy={Boolean(busyAction)} onResetPassword={handleResetPassword} />}
+        {activeSection === 'overview' && <> <AdminStats budget={budget} approved={approvedContributions} pendingCount={pendingPayments.length} friendCount={friends.length} /> <div className="mt-5"><PendingPayments payments={pendingPayments} canApprove={canApprove} busyAction={busyAction} onApprove={(paymentId) => postJson(`/api/admin/payments/${paymentId}/approve`)} onReject={(paymentId, reason) => postJson(`/api/admin/payments/${paymentId}/reject`, { reason })} /></div></>}
+
+        {activeSection === 'friends' && <section className="grid gap-5 lg:grid-cols-[.85fr_1.15fr]"><QuickActions busy={Boolean(busyAction)} onCreateFriend={handleCreateFriend} onCreateExpense={(payload) => postJson('/api/admin/expenses', payload)} /><FriendManagement friends={friends} busy={Boolean(busyAction)} onResetPassword={handleResetPassword} /></section>}
         {activeSection === 'expenses' && <ExpenseManagement budget={budget} expenses={expenses} />}
-        {activeSection === 'memories' && (
-          <section className="grid gap-5 lg:grid-cols-2">
-            <MemoryManagement albums={albums} />
-            <AuditSection audits={audits} />
-          </section>
-        )}
+        {activeSection === 'memories' && <MemoryManagement albums={albums} />}
+        {activeSection === 'audit' && <AuditSection audits={audits} />}
       </div>
     </main>
   );
